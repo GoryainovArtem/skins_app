@@ -1,55 +1,82 @@
-from typing import Annotated
+from fastapi import FastAPI
+from pydantic import BaseModel, Field
 import enum
+from datetime import datetime
+from fastapi.exceptions import ResponseValidationError
+from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 
-from sqlalchemy import ForeignKey, CheckConstraint
-from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase
-
-
-intpk = Annotated[int, mapped_column(primary_key=True, autoincrement=True,
-                                     nullable=False)]
-
-
-class Base(DeclarativeBase):
-    ...
+from database import models
+from database.database import sync_engine, async_engine
 
 
-class WeaponType(enum.Enum):
-    rifle = "Винтовка"
-    sniper_rifle = "Снайперская винтовка"
-    pistol = "Пистолет"
-    knife = "Нож"
-    machine_pistol = "Пистолет-пулемет"
-    machinegun = "Пулемет"
-    shotgun = "Дробовик"
-    gloves = "Перчатки"
-    sticker = "Наклейка"
-    case = "Кейс"
+app = FastAPI(
+    title="Skins app"
+)
 
 
-class WeaponORM(Base):
-    __tablename__ = "weapons"
-    id_weapon: Mapped[int] = mapped_column(primary_key=True)
-    name_weapon: Mapped[str] = mapped_column(unique=True)
-    type_weapon: Mapped[WeaponType]
+@app.exception_handler(ResponseValidationError)
+async def validation_exception_handler(request, exc: ResponseValidationError):
+    return JSONResponse(
+        status_code=422,
+        content=jsonable_encoder({"detail": exc.errors()})
+    )
 
 
-class Rarity(Base):
-    __tablename__ = "rarities"
-    id_rarity: Mapped[int] = mapped_column(primary_key=True, autoincrement=True,
-                                           nullable=False)
-    name_rarity: Mapped[str] = mapped_column(unique=True)
-    color_rarity: Mapped[str] = mapped_column()
+class DegreeType(enum.Enum):
+    newbie = "newbie"
+    expert = "expert"
 
 
-class SkinORM(Base):
-    __tablename__ = "skins"
-    id_skin: Mapped[int] = mapped_column(primary_key=True, autoincrement=True,
-                                         nullable=False)
-    name_skin: Mapped[str] = mapped_column(unique=True)
-    id_rarity: Mapped[int] = mapped_column(ForeignKey("rarities.id_rarity",
-                                                      ondelete="CASCADE")
-                                           )
-    id_weapon: Mapped[int] = mapped_column(ForeignKey("weapons.id_weapon",
-                                                      ondelete="CASCADE")
-                                           )
+class Degree(BaseModel):
+    id: int
+    dttm: datetime
+    degree_type: DegreeType
 
+
+class GameItem(BaseModel):
+    id: int = Field(ge=0)
+    name: str = Field(max_length=100)
+    type: str
+    degree: list[Degree] = []
+
+
+fake_items = [
+    {"id": 1, "name": "M4A4", "type": 123}
+]
+
+
+@app.get("/")
+def hello():
+    return "Hello, world!"
+
+
+@app.get("/game_items/{item_id}")
+def get_game_item(item_id: int):
+    return [item for item in fake_items if item.get("id") == item_id]
+
+
+@app.get("/game_items/", response_model=list[GameItem])
+def get_items(limit: int = 10, offset: int = 10):
+    return fake_items[offset:][:limit]
+
+
+@app.patch("/game_items/{item_id}")
+def update_game_item(item_id: int, new_name: str):
+    items = filter(lambda x: x.get("id") == item_id, fake_items)
+    item = next(items)
+    item["name"] = new_name
+    return {"status_code": 200,
+            "message": "successfully updated"}
+
+
+@app.post("/game_items/")
+def add_game_item(game_items: list[GameItem]):
+    fake_items.extend(game_items)
+    return {"status_code": 200,
+            "content": fake_items}
+
+
+# def create_tables():
+#     models.Base.metadata.drop_all(sync_engine)
+#     models.Base.metadata.create_all(sync_engine)
