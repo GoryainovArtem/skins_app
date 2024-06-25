@@ -17,7 +17,7 @@ class Base(DeclarativeBase):
     }
 
 
-class ItemType(enum.Enum):
+class GameItemType(enum.Enum):
     rifle = "Винтовка"
     sniper_rifle = "Снайперская винтовка"
     pistol = "Пистолет"
@@ -38,18 +38,18 @@ class WearCondition(enum.Enum):
     bs = "Закаленный в боях"
 
 
-class ItemORM(Base):
-    __tablename__ = "items"
-    id_item: Mapped[intpk]
-    item_name: Mapped[str] = mapped_column(unique=True)
-    item_type: Mapped[ItemType]
+class GameItemORM(Base):
+    __tablename__ = "game_items"
+    id_game_item: Mapped[intpk]
+    game_item_name: Mapped[str] = mapped_column(unique=True)
+    game_item_type: Mapped[GameItemType]
 
 
-class CaseORM(Base):
-    __tablename__ = "cases"
-    id_case: Mapped[intpk]
-    case_name: Mapped[str] = mapped_column(unique=True)
-    case_image_url: Mapped[str] = mapped_column(unique=True) # Нужна URL валидация
+class CaseTypeORM(Base):
+    __tablename__ = "case_types"
+    id_case_type: Mapped[intpk]
+    case_type_name: Mapped[str] = mapped_column(unique=True)
+    case_type_image_url: Mapped[str] = mapped_column(unique=True) # Нужна URL валидация
 
 
 class RarityORM(Base):
@@ -65,10 +65,10 @@ class SkinORM(Base):
     rarity_name: Mapped[int] = mapped_column(ForeignKey("rarities.id_rarity",
                                                         ondelete="CASCADE")
                                              )
-    id_item: Mapped[int] = mapped_column(ForeignKey("items.id_item",
-                                                      ondelete="CASCADE")
-                                         )
-    id_case: Mapped[int] = mapped_column(ForeignKey("cases.id_case", ondelete="CASCADE"))
+    id_game_item: Mapped[int] = mapped_column(ForeignKey("game_items.id_game_item",
+                                                         ondelete="CASCADE")
+                                              )
+    id_case_type: Mapped[int] = mapped_column(ForeignKey("case_types.id_case_type", ondelete="CASCADE"))
     skin_name: Mapped[str] = mapped_column(unique=True)
     skin_image_url: Mapped[str] = mapped_column()
 
