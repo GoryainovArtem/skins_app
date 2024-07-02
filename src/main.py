@@ -5,14 +5,20 @@ from datetime import datetime
 from fastapi.exceptions import ResponseValidationError
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
+import uvicorn
 
-# from src.skins.router import router as router_skins
+from src.skins.router import router as router_skins
 
 app = FastAPI(
     title="Skins"
 )
 
-#app.include_router(router_skins)
+app.include_router(router_skins)
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="127.0.0.1", port=8000)
 
 
 # @app.exception_handler(ResponseValidationError)

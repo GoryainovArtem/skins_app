@@ -1,0 +1,10 @@
+version: "1.0"
+services:
+  postgres:
+    image: postgres:14
+    environment:
+      POSTGRES_DB: "skins_app"
+      POSTGRES_USER: "skins_app_admin"
+      POSTGRES_PASSWORD: "admin_pass"
+    ports:
+    - "8009:5432"
