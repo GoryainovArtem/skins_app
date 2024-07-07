@@ -1,7 +1,9 @@
 from typing import Annotated
 import enum
+from abc import ABC
+from datetime import datetime
 
-from sqlalchemy import ForeignKey, CheckConstraint, String
+from sqlalchemy import ForeignKey, CheckConstraint, String, text
 from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, relationship
 
 
@@ -9,96 +11,200 @@ intpk = Annotated[int, mapped_column(primary_key=True, autoincrement=True,
                                      nullable=False)]
 
 str_256 = Annotated[str, 256]
+str_7 = Annotated[str, 7]
 
 
 class Base(DeclarativeBase):
     type_annotation_map = {
-        str_256: String(256)
+        str_256: String(256),
+        str_7: String(7)
     }
 
 
-class GameItemTypes(enum.Enum):
-    rifle = "Винтовка"
-    sniper_rifle = "Снайперская винтовка"
-    pistol = "Пистолет"
-    knife = "Нож"
-    machine_pistol = "Пистолет-пулемет"
-    machinegun = "Пулемет"
-    shotgun = "Дробовик"
-    gloves = "Перчатки"
-    sticker = "Наклейка"
-    case = "Кейс"
+class BaseMixin(ABC, Base):
+    """"""
+    id: Mapped[intpk]
+    add_dttm: Mapped[datetime] = mapped_column()
+    update_dttm: Mapped[datetime] = mapped_column()
 
 
-class WearConditions(enum.Enum):
-    fn = "Прямо с завода"
-    mw = "Немного поношенный"
-    ft = "После полевых испытаний"
-    ww = "Поношенный"
-    bs = "Закаленный в боях"
+class NameMixin(BaseMixin):
+    name_rus: Mapped[str_256] = mapped_column(unique=True, nullable=False)
+    name_eng: Mapped[str_256] = mapped_column(unique=True, nullable=False)
+
+
+class ImageMixin(BaseMixin):
+    image_url: Mapped[str_256] = mapped_column(unique=True, nullable=False)
+
+
+class WearConditionORM(Base):
+    __tablename__ = "skins_wear_conditions"
+    __table_args__ = {"schema": "skins"}
+    id: Mapped[intpk]
+    name_rus: Mapped[str_256] = mapped_column(unique=True, nullable=False)
+    name_eng: Mapped[str_256] = mapped_column(unique=True, nullable=False)
+    skins: Mapped[list["SkinORM"]] = relationship(back_populates="wear_condition")
+
+
+class GameItemTypeORM(Base):
+    __tablename__ = "skins_game_item_types"
+    __table_args__ = {"schema": "skins"}
+    id: Mapped[intpk]
+    name_rus: Mapped[str_256] = mapped_column(unique=True, nullable=False)
+    name_eng: Mapped[str_256] = mapped_column(unique=True, nullable=False)
+    game_items: Mapped[list["GameItemTypeORM"]] = relationship(back_populates="game_item_type")
 
 
 class GameItemORM(Base):
     __tablename__ = "skins_game_items"
     __table_args__ = {"schema": "skins"}
     id: Mapped[intpk]
-    name_rus: Mapped[str] = mapped_column(unique=True)
-    name_eng: Mapped[str] = mapped_column(unique=True)
-    type: Mapped[GameItemTypes]
-    skins: Mapped[list["SkinORM"]] = relationship()
+    name: Mapped[str_256] = mapped_column(unique=True, nullable=False)
+    id_item_type: Mapped[int] = mapped_column(ForeignKey("skins.skins_game_item_types.id",
+                                                         ondelete="RESTRICT"),
+                                              nullable=False)
+    game_item_type: Mapped["GameItemTypeORM"] = relationship(back_populates="game_items")
+    skins: Mapped[list["SkinORM"]] = relationship(back_populates="game_item")
 
 
 class CaseTypeORM(Base):
     __tablename__ = "skins_case_types"
-    __table_args__ = {"schema": "skins"}
+    __table_args__ = (
+        CheckConstraint("image_url LIKE 'http%' ",
+                        name='url_validator'),
+        {"schema": "skins"}
+    )
     id: Mapped[intpk]
-    name_rus: Mapped[str] = mapped_column(unique=True)
-    name_eng: Mapped[str] = mapped_column(unique=True)
-    image_url: Mapped[str] = mapped_column(unique=True) # Нужна URL валидация
-    skins: Mapped[list["SkinORM"]] = relationship()
+    name_rus: Mapped[str_256] = mapped_column(unique=True, nullable=False)
+    name_eng: Mapped[str_256] = mapped_column(unique=True, nullable=False)
+    image_url: Mapped[str_256] = mapped_column(unique=True, nullable=False)
+    skins: Mapped[list["SkinORM"]] = relationship(back_populates="case_type")
 
 
 class RarityORM(Base):
     __tablename__ = "skins_rarities"
-    __table_args__ = {"schema": "skins"}
+    __table_args__ = (
+        CheckConstraint("hex_color LIKE '#%'", name='hex_color_first_letter'),
+        CheckConstraint("LENGTH(hex_color) = 7", name='hex_color_length'),
+        {"schema": "skins"}
+    )
     id: Mapped[intpk]
-    name: Mapped[str] = mapped_column(unique=True)
-    hex_color: Mapped[str] = mapped_column() # Валидация на длину в 7 символов и 1 символ #
-    skins: Mapped[list["SkinORM"]] = relationship()
+    name: Mapped[str_256] = mapped_column(unique=True, nullable=False)
+    hex_color: Mapped[str_7] = mapped_column()
+    skins: Mapped[list["SkinORM"]] = relationship(back_populates="rarity")
+    stickers: Mapped[list["StickerTypeORM"]] = relationship(back_populates="rarity")
 
 
 class SkinORM(Base):
     __tablename__ = "skins_skins"
-    __table_args__ = {"schema": "skins"}
+    __table_args__ = (
+        CheckConstraint("image_url LIKE 'http%'",
+                        name='url_validator'),
+        {"schema": "skins"}
+    )
     id: Mapped[intpk]
     id_rarity: Mapped[int] = mapped_column(ForeignKey("skins.skins_rarities.id",
-                                                      ondelete="RESTRICT") #  + поле is_active
-                                             # protected - по умолчанию
-                                             )
-    rarity: Mapped["RarityORM"] = relationship()
+                                                      ondelete="RESTRICT")
+                                           )
+    rarity: Mapped["RarityORM"] = relationship(back_populates="skins")
 
     id_game_item: Mapped[int] = mapped_column(ForeignKey("skins.skins_game_items.id",
                                                          ondelete="RESTRICT")
                                               )
-    game_item: Mapped["GameItemORM"] = relationship()
+    game_item: Mapped["GameItemORM"] = relationship(back_populates="skins")
 
     id_case_type: Mapped[int] = mapped_column(ForeignKey("skins.skins_case_types.id",
                                                          ondelete="RESTRICT")
                                               )
-    case_type: Mapped["CaseTypeORM"] = relationship()
+    case_type: Mapped["CaseTypeORM"] = relationship(back_populates="skins")
 
-    name_rus: Mapped[str] = mapped_column()
-    name_eng: Mapped[str] = mapped_column()
-    image_url: Mapped[str] = mapped_column()
-
-
-# class StoreSkinORM(Base):
-#     __tablename__ = "store_skins"
-#
-#     id_store_skin = ...
-#     id_skin = ...
-#     id_wear_condition = ...
+    name_rus: Mapped[str_256] = mapped_column(nullable=False)
+    name_eng: Mapped[str_256] = mapped_column(nullable=False)
+    image_url: Mapped[str_256] = mapped_column(unique=True, nullable=False)
 
 
-# class Customer(Base):
-#     ...
+class StickerTypeORM(Base):
+    __tablename__ = "skins_sticker_types"
+    __table_args__ = {"schema": "skins"}
+
+    id: Mapped[intpk]
+    name: Mapped[str_256] = mapped_column(unique=True, nullable=False)
+    id_rarity: Mapped[int] = mapped_column(ForeignKey("skins.skins_rarities.id",
+                                                      ondelete="RESTRICT")
+                                           )
+    image_url: Mapped[str_256] = mapped_column(CheckConstraint("image_url LIKE 'http%' ",
+                                                               name='url_validator'),
+                                               unique=True, nullable=False)
+    rarity: Mapped["RarityORM"] = relationship(back_populates="sticker_types")
+    store_sticker_skins: Mapped[list["StoreSkinStickerORM"]] = relationship(back_populates="sticker")
+
+
+class StoreItemORM(Base):
+    __tablename__ = "skins_store_items"
+    __table_args__ = {"schema": "skins"}
+    id: Mapped[intpk]
+    id_owner: Mapped[int] = mapped_column()
+    assert_id: Mapped[int] = mapped_column()
+    add_dttm: Mapped[datetime] = mapped_column(server_default=text("TIMEZONE('UTC', now())"),
+                                               nullable=False)
+    update_dttm: Mapped[datetime] = mapped_column()
+    store_skin: Mapped["StoreSkinORM"] = relationship(back_populates="store_item")
+
+
+class StoreSkinORM(Base):
+    __tablename__ = "skins_store_skins"
+    __table_args__ = (
+        CheckConstraint('pattern > 0 and pattern < 1000',
+                        name='pattern_limits'),
+        CheckConstraint('skin_float > 0.0 and skin_float < 1.0',
+                        name='pattern_limits_2'),
+        {"schema": "skins"}
+    )
+    id: Mapped[intpk]
+    id_store_item: Mapped[int] = mapped_column(ForeignKey("skins.skins_store_items.id",
+                                                          ondelete="RESTRICT"),
+                                               nullable=False
+                                               )
+    store_item: Mapped[StoreItemORM] = relationship(back_populates="store_item")
+    id_wear_condition: Mapped[int] = mapped_column(ForeignKey("skins.skins_wear_conditions.id", ondelete="RESTRICT"),
+                                                   nullable=False
+                                                   )
+    wear_condition: Mapped[WearConditionORM] = relationship(back_populates="skins")
+    pattern: Mapped[int] = mapped_column(nullable=False)
+    skin_float: Mapped[float] = mapped_column(nullable=False)
+    is_stattrack: Mapped[bool] = mapped_column(nullable=False,
+                                               server_default=text('false')
+                                               )
+    store_skin_stickers: Mapped[list["StoreSkinStickerORM"]] = relationship(back_populates="store_skin")
+
+
+class StoreSkinStickerORM(Base):
+    """
+    Many to many таблица для хранения информации о нанесенных на
+    скины стикерах.
+    """
+    __tablename__ = "skins_store_skins_stickers"
+    __table_args__ = (
+        CheckConstraint("position >= 1 AND position <= 4",
+                        name="position_min_max"),
+        {"schema": "skins"}
+    )
+    id: Mapped[intpk]
+    id_sticker: Mapped[int] = mapped_column(ForeignKey("skins.skins_sticker_types.id"),
+                                            nullable=False)
+    id_store_skin: Mapped[int] = mapped_column(ForeignKey("skins.skins_store_skins.id"),
+                                               nullable=False)
+    sticker: Mapped["StickerTypeORM"] = relationship(back_populates="store_sticker_skins")
+    store_skin: Mapped["StoreSkinORM"] = relationship(back_populates="store_skin_stickers")
+    position: Mapped[int] = mapped_column()
+
+
+class WearConditionIIORM(Base):
+    __tablename__ = "skins_wears_1"
+    __table_args__ = {"schema": "skins"}
+    id: Mapped[intpk]
+    name_rus: Mapped[str_256] = mapped_column(unique=True, nullable=False)
+    name_eng: Mapped[str_256] = mapped_column(unique=True, nullable=False)
+    name_eng_22: Mapped[str_256] = mapped_column(unique=True, nullable=False)
+    name_eng_22: Mapped[str_256] = mapped_column(unique=True, nullable=False)
+

@@ -14,7 +14,6 @@ router = APIRouter(
 
 @router.get("/")
 async def get_rarities(session: AsyncSession = Depends(get_async_session)):
-    print("get_rarities call")
     query = select(RarityORM)
     print(1)
     data = await session.execute(query)

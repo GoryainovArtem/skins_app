@@ -27,7 +27,7 @@ def lazy_select():
     with sync_session_factory() as session:
         query = select(models.RarityORM)
         data = session.execute(query)
-        rarity_1 = data.scalars().all()[0]
+        rarity_1 = data.scalars().all()[1]
         return rarity_1.skins
 
 
