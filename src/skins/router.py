@@ -1,21 +1,34 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from src.skins import pydantic_schemas
 
 from src.database import get_async_session
 
-from src.skins.models import RarityORM
+from src.skins import models
 
-router = APIRouter(
+
+rarity_router = APIRouter(
     prefix="/rarities",
-    tags=["Skin"]  # Это что
+    tags=["Rarity"]  # Это что
+)
+
+skin_router = APIRouter(
+    prefix="/skins",
+    tags=["Skin"]
 )
 
 
-@router.get("/")
+@rarity_router.get("/", response_model=list[pydantic_schemas.RarityModel])
 async def get_rarities(session: AsyncSession = Depends(get_async_session)):
-    query = select(RarityORM)
-    print(1)
+    query = select(models.RarityORM)
     data = await session.execute(query)
-    print(2)
     return data.scalars().all()
+
+
+@skin_router.get("/")
+async def get_skins(session: AsyncSession = Depends(get_async_session)):
+    query = select(models.SkinORM)
+    data = await session.execute(query)
+    return data.scalars().all()
+

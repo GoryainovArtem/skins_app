@@ -7,13 +7,14 @@ from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 import uvicorn
 
-from src.skins.router import router as router_skins
+from src.skins import router
 
 app = FastAPI(
     title="Skins"
 )
 
-app.include_router(router_skins)
+app.include_router(router.skin_router)
+app.include_router(router.rarity_router)
 
 
 if __name__ == "__main__":
