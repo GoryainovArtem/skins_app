@@ -41,6 +41,7 @@ class NameMixin(BaseMixin):
 class ImageMixin(NameMixin):
     __abstract__ = True
 
+    description: Mapped[str_256] = mapped_column(nullable=True)
     image_url: Mapped[str_256] = mapped_column(unique=True, nullable=False)
 
 
@@ -76,6 +77,9 @@ class CaseTypeORM(ImageMixin):
                         name='url_validator'),
         {"schema": "skins"}
     )
+
+
+
     skins: Mapped[list["SkinORM"]] = relationship(back_populates="case_type")
 
 
@@ -102,7 +106,7 @@ class SkinORM(ImageMixin):
     id_rarity: Mapped[int] = mapped_column(ForeignKey("skins.skins_rarities.id",
                                                       ondelete="RESTRICT")
                                            )
-    rarity: Mapped["RarityORM"] = relationship(back_populates="skins")
+    rarity: Mapped["RarityORM"] = relationship(back_populates="skins", innerjoin=True)
 
     id_game_item_type: Mapped[int] = mapped_column(ForeignKey("skins.skins_game_items.id",
                                                               ondelete="RESTRICT")
@@ -113,6 +117,8 @@ class SkinORM(ImageMixin):
                                                          ondelete="RESTRICT")
                                               )
     case_type: Mapped["CaseTypeORM"] = relationship(back_populates="skins")
+    store_skins: Mapped[list["StoreSkinORM"]] = relationship(back_populates="skin")
+    # brin index в postgresql
 
 
 class StickerTypeORM(ImageMixin):
@@ -134,6 +140,8 @@ class StoreItemORM(BaseMixin):
     id_owner: Mapped[int] = mapped_column()
     assert_id: Mapped[int] = mapped_column()
     store_skin_item: Mapped["StoreSkinORM"] = relationship(back_populates="store_item")
+    # store_case_item
+    # store_sticker_item
 
 
 class StoreSkinORM(BaseMixin):
@@ -142,7 +150,7 @@ class StoreSkinORM(BaseMixin):
         CheckConstraint('pattern > 0 and pattern < 1000',
                         name='pattern_limits'),
         CheckConstraint('skin_float > 0.0 and skin_float < 1.0',
-                        name='pattern_limits_2'),
+                        name='float_limits'),
         {"schema": "skins"}
     )
     id: Mapped[intpk]
@@ -160,6 +168,10 @@ class StoreSkinORM(BaseMixin):
     is_stattrack: Mapped[bool] = mapped_column(nullable=False,
                                                server_default=text('false')
                                                )
+
+    id_skin: Mapped[int] = mapped_column(ForeignKey("skins.skins_skins.id", ondelete="RESTRICT"))
+    skin: Mapped[SkinORM] = relationship(back_populates="store_skins")
+
     store_skin_stickers: Mapped[list["StoreSkinStickerORM"]] = relationship(back_populates="store_skin")
 
 
